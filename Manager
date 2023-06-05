@@ -1,0 +1,273 @@
+import sqlite3
+import pandas as pd
+# import NumPy as np
+
+filename_db = 'Databasescw.db'
+conn = sqlite3.connect(filename_db)
+print('Opened database successfully')
+
+def initialise():
+  cursor = conn.cursor()
+  
+  cursor.execute('''
+  CREATE TABLE IF NOT EXISTS Flight
+  (
+  id INT PRIMARY KEY,
+  date DATE,
+  time TIME,
+  aircraft_id INT,
+  destination TEXT,
+  origin TEXT,
+  FOREIGN KEY(aircraft_id) REFERENCES Aircraft (id)
+  );''')
+  print('Table Flight created successfully')
+  
+  cursor.execute('''
+  CREATE TABLE IF NOT EXISTS Pilot
+  (
+  id INT PRIMARY KEY,
+  pilot_name TEXT
+  );''')
+  print('Table Pilot created successfully')
+  
+  cursor.execute('''
+  CREATE TABLE IF NOT EXISTS Aircraft
+  (
+  id INT PRIMARY KEY,
+  aircraft_name TEXT
+  );''')
+  print('Table Aircraft created successfully')
+
+  cursor.execute('''
+  CREATE TABLE IF NOT EXISTS Pilot_Flight
+  (
+  pilot_id INT,
+  flight_id INT,
+  PRIMARY KEY (pilot_id, flight_id)
+  FOREIGN KEY (pilot_id) REFERENCES Pilot (id),
+  FOREIGN KEY (flight_id) REFERENCES Flight (id)
+  );''')
+  print('Table Pilot_Flight created successfully')
+
+  
+  return cursor
+
+def initialdata(cursor):
+  cursor.execute('''INSERT INTO Pilot(id, pilot_name) VALUES 
+  (1, 'Ethan'), 
+  (2, 'Pax'), 
+  (3, 'Ishaan'),
+  (4, 'Ryan'), 
+  (5, 'Georgia')
+  ;''')
+  print('Pilot Data inserted successfully')
+  
+  cursor.execute('''INSERT INTO Aircraft(id, aircraft_name) VALUES 
+  (1, 'British Airways'),
+  (2, 'Emirates'),
+  (3, 'Qatar Airways'),
+  (4, 'Singapore Airlines'),
+  (5, 'Virgin Airlines')
+  ;''')
+  print('Aircraft Data inserted successfully')
+
+
+  cursor.execute('''INSERT INTO Flight(id, date, time, aircraft_id, destination, origin) VALUES 
+  (1, '2022-12-08', '08:00', 1, 'England', 'Uraguay'),
+  (2, '2022-12-08', '09:00', 4, 'Singapore', 'England'),
+  (3, '2022-12-10', '23:00', 3, 'England', 'Turkey'),
+  (4, '2023-01-01', '15:00', 5, 'USA', 'Brazil'),
+  (5, '2022-12-18', '11:00', 2, 'Turkey', 'USA'),
+  (6, '2023-01-09', '17:00', 3, 'Brazil', 'Singapore'),
+  (7, '2022-12-08', '09:00', 2, 'Russia', 'Turkey')
+  ;''')
+  print('Flight Data inserted successfully')
+
+
+  cursor.execute('''INSERT INTO Pilot_Flight(pilot_id, flight_id) VALUES 
+  (1,6),
+  (1,7),
+  (2,5),
+  (2,7),
+  (3,5),
+  (4,2),
+  (4,6),
+  (5,1),
+  (5,3),
+  (5,4)
+  ;''')
+  print('Pilot_Flight Data inserted successfully')
+
+def printDataTypes():
+  print('Which of the following data do you want to enquire:')
+  print('1. Flight')
+  print('2. Pilot')
+  print('3. Aircraft')
+  print('4. Quit\n')
+  while True:
+    cmd2 = input()
+    if cmd2 == '1':
+      dataTable = 'Flight'
+      break
+    elif cmd2 == '2':
+      dataTable = 'Pilot'
+      break
+    elif cmd2 == '3':
+      dataTable = 'Aircraft'
+      break
+    elif cmd2 == '4':
+      dataTable = ''
+      break
+    else:
+      print('Please input a valid input')
+  print("\n")
+  return dataTable
+
+def printTable(tablename):
+  if (tablename == 'Flight'):
+    relationship = "SELECT Flight.id, date, time, aircraft_name, destination, origin FROM Flight INNER JOIN Aircraft ON Flight.aircraft_id = Aircraft.id"
+    cursor.execute(relationship)
+  else:
+    cursor.execute("SELECT * FROM " + tablename)
+  names = [description[0] for description in cursor.description]
+  rows = cursor.fetchall()
+  for row in rows:
+    print("-------------------------------------")
+    for name, val in zip(names,row):
+      print(name,val)
+  print("\n")
+
+def selectData(dataTable):
+  if dataTable != 'null':
+    print("")
+    
+def addData(dataTable):
+  if dataTable != '':
+    print('Current list of entries in ' + dataTable +'\n')
+    printTable(dataTable)
+    cursor.execute("PRAGMA table_info('" + dataTable + "')")
+    columns = cursor.fetchall()
+
+    values = []
+    pilotids = []
+
+    print("WARNING: Invalid data entry will result in non-insertion of new data so please follow the format as shown in the above table")
+    print("WARNING: Id numbers must be unique otherwise this will result in non-insertion of new data so please use a unique id number")
+
+    for i, col in enumerate(columns):
+      value = input(f'Enter the value for {col[1]}: ')
+      if dataTable == 'Flight' and i == 2:
+        printTable('Aircraft')
+        print("For this value, enter the following id number that corresponds to the aircraft")
+      values.append("'" + value + "'")
+
+    if dataTable == 'Flight':
+      printTable('Pilot')
+      print("Now please enter the following pilots for this flight using their id number")
+      print("Press ENTER everytime you type in one pilot id and type QUIT (needs to be all caps) when you finish adding in all pilots")
+      while True:
+        value = input()
+        if value == 'QUIT':
+          break
+        else:
+          pilotids.append(value)
+          print("Added pilot id " + value)
+
+    query = "INSERT INTO " + dataTable + f" VALUES ({', '.join(values)})"
+    cursor.execute(query)
+
+    for pilotid in pilotids:
+      query2 = "INSERT INTO Pilot_Flight VALUES (" + values[0] + ", " + pilotid + ")"
+      cursor.execute(query2)
+
+def deleteData(dataTable):
+  if dataTable != '':
+    printTable(dataTable)
+    print('Please choose which entry you would like to delete by typing in the id number\n')
+    idnum = input()
+    cursor.execute('DELETE from ' + dataTable + ' where ID = ' + idnum)
+    printTable(dataTable)
+    print('\nDeleted Entry ' + idnum + '\n')
+  
+def updateData(dataTable):
+  if dataTable != '':
+    printTable(dataTable)
+    print("Which entry would you like to edit? Please select the appropriate id number")
+    cmd2 = input()
+    print("Which column value would you like to change?")
+    cmd3 = input()
+    print("Please change the value as appropriate")
+    cmd4 = input()
+    cursor.execute("UPDATE " + dataTable + " SET " + cmd3 + " = '" + cmd4 + "' WHERE ID = " + cmd2)
+    print("\nExecuted update\n")
+    printTable(dataTable)
+
+
+if __name__ == "__main__":
+  compart = True
+  while True:
+    try:
+      while compart:  
+        cursor = initialise()
+        initialdata(cursor)
+        # sql_query = pd.read_sql_query('''SELECT * FROM Pilot''', conn)
+        # pilotdf = pd.DataFrame(sql_query, columns = ['id', 'pilot_name'])
+        # sql_query = pd.read_sql_query('''SELECT * FROM Aircraft''', conn)
+        # aircraftdf = pd.DataFrame(sql_query, columns = ['id', 'aircraft_name'])
+        # print(pilotdf)
+  
+        # print('\nTESTING UPDATING DATA\n')
+        # cursor.execute('UPDATE FLIGHT set time = 9999 where ID = 7')
+        # cursor.execute('SELECT id, date, time, destination, origin from FLIGHT WHERE time = 9999')
+        # for row in cursor:
+        #  print('ID = ', row[0])
+        #  print("date = ", row[1])
+        #  print("time = ", row[2])
+        #  print("destination = ", row[3])
+        #  print("origin = ", row[4], "\n")
+  
+        # print('\nTESTING ALTERING DATA\n')
+        # cursor.execute('ALTER TABLE Aircraft RENAME TO Airline')
+        # cursor.execute('ALTER TABLE Airline ADD COLUMN expensiveness INT')
+        # cursor.execute('UPDATE AIRLINE set expensiveness = 1234 where ID = 2')
+        # cursor.execute('SELECT id, name, expensiveness from AIRLINE')
+        # for row in cursor:
+        #  print('ID = ', row[0])
+        #  print("name = ", row[1])
+        #  print("expensiveness = ", row[2], "\n")
+          
+        compart = False
+
+      leavemenu = True
+      print('Welcome to Airline Manager! To enter any sub-menu, enter the number that corresponds to the item')
+      print('1. Select Data')  
+      print('2. Add New Data')
+      print('3. Delete Data')
+      print('4. Update Data')
+      print('5. Quit the program\n')
+      cmd = input()
+      if cmd == '1':
+        print('Entered 1\n')
+        type = printDataTypes()
+        selectData(type)
+      elif cmd == '2':
+        print('Entered 2\n')
+        type = printDataTypes()
+        addData(type)
+      elif cmd == '3':
+        print('Entered 3\n')
+        type = printDataTypes()
+        deleteData(type)
+      elif cmd == '4':
+        print('Entered 4\n')
+        type = printDataTypes()
+        updateData(type)
+      elif cmd == '5':
+        print('Quitting the programn...')
+        break
+      else:
+        print("\nPlease enter a valid input\n")
+      
+    except EOFError: 
+      exit()
+  
